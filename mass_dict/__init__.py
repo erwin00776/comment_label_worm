@@ -8,6 +8,7 @@ class Dict:
     def __init__(self, base_dir='/Users/erwin/work/comment_labeled/dict', lazy_load=True):
         self.base_dir = base_dir
         self.lazy_load = lazy_load
+        self.user_dict_path = os.path.join(self.base_dir, 'userdict.txt')
         self.loaded = False
 
         self.word_attrs = {}

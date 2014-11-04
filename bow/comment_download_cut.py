@@ -36,22 +36,29 @@ def cut_words(src, dst):
 
 def download_comments(itemid, sellerid, query=''):
     fout = open("/users/erwin/tmp/tmall_comments_%s_%s_%s" % (query, itemid, sellerid), 'w')
-    for pageid in range(1, 200):
+    prev_line = None
+    for pageid in range(1, 100):
         url_prefix = "http://rate.tmall.com/list_detail_rate.htm?itemId=%s&spuId=&sellerId=%s&order=1&currentPage=%d" % (itemid, sellerid, pageid)
         url = url_prefix + '&append=0&content=1&tagId=&posi=&picture=&ua=248YlJgThc3UTYWOBgrdllqXG9aa1liUGtefiF%2B%7CYVJ8T3lKekp5Q3FGdUN2RRo%3D%7CYFB%2BJwdWNVEyQikJJwc9HTMTXD9efiF%2B%7CZ1RkSmpZb1xsXG9VZ1BjVWBTa1l1RnZBcUp%2FRXJFdENzSHJCeEJiPQ%3D%3D%7CZlVuQBkoBjUHNgIsHDISIBc3aDc%3D%7CZVR6IxMiDD4QIxMpGzUOOQ48EiERKxk3DT8NIxAgGigGMwM2aTY%3D%7CZFJ8JQUlCzELPRMiEigSPAk7DThnOA%3D%3D%7Ca11zKgoqBDEBNRsrHS4eMAs%2BBD9gPw%3D%3D%7CalxyKwsrBTIJMx0uFSUQPg03BzIJVgk%3D%7CaV9xKAgoBj0NOhQnECAXOQk7CDkNUg0%3D%7CaF9xKAgoBl9kUWRKeU5%2FTBM9DyEBIQ8%2FDTgJO2Q7%7Cb1l3Lg4uADUCMx0uGiofMQEyAzEBXgE%3D%7Cbll3Lg4uAFlsXm9BckZwQR4wAiwMLAIyATYAM2wz%7CbVt1LAwsAjkNPRMgESESPAw9DjkJVgk%3D%7CbFt1LAwsAltgVW9BckNyRxg2BCoKKgQ0BTIGMG8w%7Cc0VrMhIyHCkZLgAxADYNIxMmEyEWSRY%3D%7CckRqMxMzHSYRJwk4CToPIRErGCkcQxw%3D%7CcUZoMRExH0Z9SnxSY1JhVHpBckNvW2tcckR1R2lSYU9%2BRRo0BigIKAY2DD0KO2Q7%7CcEZ0RmhadERqWW9cckN0QW9Zd0R2WGNNd1lsQnFGaF9xQnNdbEJxQmxfcUNtVwg%3D&_ksTS=1412218079834_3853&callback=jsonp3854'
         try:
             page = None
             try_times = 0
+            line = None
             while page is None and try_times < 5:
                 page = urllib2.urlopen(url, timeout=3)
                 try_times += 1
+                line = page.read()
+                if len(line) <= 256:
+                    continue
+
+            if not line is None:
+                if not prev_line is None and prev_line == line:
+                    break
+                fout.write(line)
+                prev_line = line
         except:
             print("exception %s" % url)
             pass
-        line = page.read()
-        if len(line) <= 256:
-            return
-        fout.write(line)
         page.close()
         print('download comment %s page %d' % (query, pageid))
     fout.close()
@@ -189,6 +196,6 @@ def download_all_comments():
 if __name__ == '__main__':
     #download_all_comments()
     #cut_words("/Users/erwin/tmp/all_tmall_comments", "/Users/erwin/tmp/all_tmall_comments.cut")
-    download_comments(itemid='8095482851', sellerid='519286239', query='make-up')
+    download_comments(itemid='40887946035', sellerid='1579139371', query='clothes')
 
 

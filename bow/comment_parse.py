@@ -18,7 +18,7 @@ def cut_line(line):
 
 def get_short_sentences(sentence,
                         splitters=[
-                            u' ', u'，', u'。', u'；', u'！', u'、', u'：', u'　'
+                            u' ', u'，', u'。', u'；', u'！', u'、', u'：', u'　', u'～',
                             u',', u'.', u'!', u'~', u':', u';'
                         ]):
     short_sentences = []
@@ -201,8 +201,9 @@ if __name__ == '__main__':
                  short_sentences=True,
                  auto_cut=False)
     '''
-    word_relation()
+    #word_relation()
 
     #test_freq()
-    #fout = codecs.open(os.path.join("/users/erwin/tmp", "all_tmall_comments_make-up"), 'w', encoding='utf-8')
-    #parse("/users/erwin/tmp/tmall_comments_make-up_8095482851_519286239", fout=fout, auto_line=True, auto_cut=False)
+    fout = codecs.open(os.path.join("/users/erwin/tmp", "tmall_comments_clothes_sentences"), 'w', encoding='utf-8')
+    parse("/users/erwin/tmp/tmall_comments_clothes_40887946035_1579139371",
+          fout=fout, auto_line=True, short_sentences=True, auto_cut=False)
