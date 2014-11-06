@@ -29,7 +29,7 @@ class LabelObj:
         self.lines.append(line)
 
 
-class LabelCluster:
+class LabelClusters:
     def __init__(self):
         self.clusters = {}
 
@@ -97,7 +97,9 @@ high_flag_vec = [
     ]
 
 
+# high frequency syntax rules
 high_flag_map = {}
+# low frequency syntax rules (basic)
 low_flag_cmds = ['n2', 'n', 'a2', 'a', 'v2', 'v']
 for i in high_flag_vec:
     cmds = i.split()
@@ -107,6 +109,9 @@ for i in high_flag_vec:
 
 
 def try_cmds(cmds, words, short_circut=False):
+    '''
+    short circut: for low frequency syntax rules.
+    '''
     chooses = []
     for cmd in cmds:
         index = 1
@@ -148,12 +153,35 @@ def trashy_comment(words):
     return filter
 
 
+tags = [
+    u"身材#上身#合身#修身#衣服#版型",
+    u"太胖#胖#腰身#瘦",
+    u"弹力#贴身#弹性#合身#修身#衣服#版型",
+    u"图#描述#想象#图片",
+    u"手感#面料#料子#布料#纯棉",
+    u"试穿#穿着#漂亮#很漂亮#质量",
+    u"很棒#起来#喜欢#赞#不错#好#满意",
+    u"大小#尺码#码#码数",
+    u"舒服#好看#漂亮#很漂亮#质量",
+    u"做工#质感#柔软#舒适",
+    u"合身#修身#衣服#版型#料子#布料#纯棉",
+    u"速度#态度#物流#发货",
+    u"柔软#舒适#样式#款式#色差#款型#样子",
+    u"妹妹#姐姐#妈妈#女朋友#老婆#朋友#同学#同事",
+    u"漂亮#很漂亮#质量#样式#款式#色差#款型#样子",
+]
+
+tag_vector = []
+for tag in tags:
+    t = set(tag.split('#'))
+    tag_vector.append([tag, t, []])
+
 def extract_words():
     keywords_flags = set(['n', 'v', 'a', 'l', 'ng', 'nz', 'd', 'p', 'u' 'k'])
     jieba.load_userdict(mass_dict.user_dict_path)
     fin = codecs.open('/Users/erwin/work/comment_labeled/part_of_comments2', 'r', encoding='utf-8')
     fout = codecs.open('/Users/erwin/work/comment_labeled/part_of_comments_tokens', 'w', encoding='utf-8')
-    label_clusters = LabelCluster()
+    label_clusters = LabelClusters()
     word_freqs = {}
     lineno = 0
     word_count = 0
@@ -201,6 +229,7 @@ def extract_words():
         for l in o.lines:
             fout.write(l)
 
+    # output labels
     fout_labels = codecs.open('/Users/erwin/work/comment_labeled/labels', 'w', encoding='utf-8')
     for (label, label_obj) in label_clusters.clusters.items():
         if len(label.strip()) < 1:
@@ -210,6 +239,17 @@ def extract_words():
         fout.write(label + "\n")
         for line in label_obj.lines:
             fout.write("\t\t" + line + "\n")
+
+        for tag_indicate in tag_vector:
+            if label in tag_indicate[1]:
+                tag_indicate[2] += label_obj.lines
+
+    # output comment group by labels
+    fout_labels.write("\n\n")
+    for tag_indicate in tag_vector:
+        fout_labels.write(tag_indicate[0] + "\n")
+        for line in tag_indicate[2]:
+            fout_labels.write("\t\t" + line + "\n")
     fout.close()
     fout_labels.close()
 

@@ -236,29 +236,62 @@ class LabelClusters:
         self.model = word2vec.Word2Vec.load_word2vec_format('/Users/erwin/svn/word2vec/all_tmall_comments.bin',
                                                             binary=True)
         self.label_relations = []
+        self.cluster_sims = {}
         self.prepare()
 
     def prepare(self):
-        tmp_model_name = "/tmp/label_clusters.dat"
-        if os.path.exists(tmp_model_name):
-            fin = open(tmp_model_name, 'rb')
+        tmp_model_words = "/tmp/label_clusters.dat"
+        tmp_model_sim = "/tmp/label_clusters.sim"
+
+        # load label to words.
+        if os.path.exists(tmp_model_words):
+            fin = open(tmp_model_words, 'rb')
             self.label_relations = pickle.load(fin)
             fin.close()
-            print("load from " + tmp_model_name + " done")
-            return
+            print("load from " + tmp_model_words + " done.")
+        else:
+            for label in labels:
+                try:
+                    relations = self.model.most_similar(positive=[label], topn=10)
+                    words = []
+                    for (word, sim) in relations:
+                        words.append(word)
+                    self.label_relations.append([label, words])
+                except KeyError:
+                    continue
+            fout = open(tmp_model_words, 'wb')
+            pickle.dump(self.label_relations, fout)
+            fout.close()
+            print("dump " + tmp_model_words + " done.")
 
-        for label in labels:
-            try:
-                relations = self.model.most_similar(positive=[label], topn=10)
-                words = []
-                for (word, sim) in relations:
-                    words.append(word)
-                self.label_relations.append([label, words])
-            except KeyError:
-                continue
-        fout = open(tmp_model_name, 'wb')
-        pickle.dump(self.label_relations, fout)
-        fout.close()
+        # load label similarity distances matrix.
+        if os.path.exists(tmp_model_sim):
+            fin = open(tmp_model_sim, 'rb')
+            self.cluster_sims = pickle.load(fin)
+            fin.close()
+            print("load from " + tmp_model_sim + " done.")
+        else:
+            for i in range(0, len(self.label_relations)-1):
+                lbl1 = self.label_relations[i][0]
+                ws1 = self.label_relations[i][1]
+                for j in range(i+1, len(self.label_relations)):
+                    lbl2 = self.label_relations[j][0]
+                    ws2 = self.label_relations[j][1]
+                    try:
+                        sim = self.model.n_similarity(ws1, ws2)
+                    except ValueError:
+                        continue
+                    x = self.cluster_sims.get(i, {})
+                    x[j] = sim
+                    self.cluster_sims[i] = x
+                    y = self.cluster_sims.get(j, {})
+                    y[i] = sim
+                    self.cluster_sims[j] = y
+            fout = open(tmp_model_sim, 'wb')
+            pickle.dump(self.cluster_sims, fout)
+            fout.close()
+            print("dump " + tmp_model_sim + " done.")
+
 
     def color(self, clusters):
         print('begin color')
@@ -290,10 +323,37 @@ class LabelClusters:
 
         return color_groups
 
+    def cluster_knn(self, k=0.7, alpha=0.667):
+        groups = [[0]]
+        for i in range(1, len(self.label_relations)):
+            max_sims = None
+            max_index = None
+            for p in range(0, len(groups)):
+                sims = []
+                for q in range(0, len(groups[p])):
+                    if self.cluster_sims[i][groups[p][q]] > alpha:
+                        sims.append(self.cluster_sims[i][groups[p][q]])
+                if len(sims) < k*len(groups[p]):
+                    continue
+                avg_sims = reduce(lambda x, sum_sims: sum_sims + x, sims, 0) / len(sims)
+                if avg_sims > max_sims:
+                    max_sims = avg_sims
+                    max_index = p
+            if max_index is None:
+                groups.append([i])
+            else:
+                groups[max_index].append(i)
+        for i in range(0, len(groups)):
+            words = []
+            for j in range(0, len(groups[i])):
+                word_rel = self.label_relations[groups[i][j]]
+                words.append(word_rel[0])
+            print('#'.join(words))
+
+
     def cluster(self):
         # 1) filter unuseful label
         # 2) converge
-
         clusters = {}
         for i in range(0, len(self.label_relations)-1):
             lbl1 = self.label_relations[i][0]
@@ -304,7 +364,7 @@ class LabelClusters:
                 lbl2 = self.label_relations[j][0]
                 ws2 = self.label_relations[j][1]
                 try:
-                    sim = self.model.n_similarity(ws1, ws2)
+                    sim = self.cluster_sims[i][j]
                 except ValueError:
                     continue
                 if max_sim < sim:
@@ -321,9 +381,9 @@ class LabelClusters:
             else:
                 print("error!" + lbl1 + "\t\t" + str(max_sim))
         for (k, v) in clusters.items():
-            if k <= v[0]:
-                print(k + "\t" + v[0] + "\t" + str(v[1]))
+            print(k + "\t" + v[0] + "\t" + str(v[1]))
 
+        # 合并color相似的group
         color_groups = self.color(clusters)
         color_sim_max = {}
         for i in range(0, len(color_groups)-1):
@@ -340,12 +400,13 @@ class LabelClusters:
                 if rel_sim is None or rel_sim[1] < max_sim:
                     color_sim_max[max_index] = [i, max_sim]
         for (idx, pair) in color_sim_max.items():
-            if idx < pair[0]:
+            if idx < pair[0] and pair[1] > 0.6:
                 print(str(pair[1]) + "\t\t"
                       + '#'.join(color_groups[idx])
-                      + "\t\t" + '#'.join(color_groups[pair[0]])
-                    )
+                      #+ "\t\t" + '#'.join(color_groups[pair[0]]))
+                      + "#" + '#'.join(color_groups[pair[0]]))
 
 if __name__ == '__main__':
     label_clusters = LabelClusters()
-    #label_clusters.cluster()
+    label_clusters.cluster()
+    #label_clusters.cluster_knn(alpha=0.5)
