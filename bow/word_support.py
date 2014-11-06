@@ -69,7 +69,7 @@ class WordSupport:
             return
 
         jieba.load_userdict(mass_dict.user_dict_path)
-        fin = codecs.open('/Users/erwin/work/comment_labeled/part_of_comments2', 'r', encoding='utf-8')
+        fin = codecs.open('/Users/erwin/work/comment_labeled/part_of_comments3', 'r', encoding='utf-8')
         for line in fin.readlines():
             sel_words = []
             sel_flags = []
@@ -96,7 +96,6 @@ class WordSupport:
         find similative tags
         find common tags
         '''
-        rels = []
         support = {}
         for (k, wset) in self.support.items():
             s = set([])
@@ -105,6 +104,7 @@ class WordSupport:
                     s.add(w)
             support[k] = s
 
+        similars = []
         common_tags = []
         for (k1, wset1) in support.items():
             diff_count = 0
@@ -120,8 +120,7 @@ class WordSupport:
                 r2 = len(tmp) * 1.0 / len(wset2)
 
                 if r1 > alpha or r2 > alpha:
-                    #relative
-                    rels.append([k1, k2])
+                    similars.append([k1, k2])
                     print(k1 + '\t' + k2 + '\t' + str(r1) + '\t' + str(r2))
 
                     if r1 / r2 > zeta or r2 / r1 > zeta:
@@ -133,6 +132,24 @@ class WordSupport:
         for tag in common_tags:
             print("\t" + tag)
 
+        common_set = set(common_tags)
+        similar_groups = []
+        for (w1, w2) in similars:
+            if w1 in common_set or w2 in common_set:
+                continue
+            join = False
+            for group in similar_groups:
+                if w1 in group or w2 in group:
+                    group.add(w1)
+                    group.add(w2)
+                    join = True
+                    break
+            if not join:
+                similar_groups.append(set([w1, w2]))
+
+        print("similar tag support reasoning: ")
+        for group in similar_groups:
+            print("\t" + " ".join(group))
 
 
     def debug(self):
@@ -151,7 +168,7 @@ class WordSupport:
 if __name__ == '__main__':
     word_support = WordSupport()
     word_support.train()
-    #word_support.debug()
-    word_support.find_relative()
+    word_support.debug()
+    #word_support.find_relative()
 
 
