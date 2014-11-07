@@ -125,9 +125,8 @@ def gen_freq_dict(file_name, freq_name=None):
 
 def test_freq():
     all_freq, all_total, all_line = gen_freq_dict("/users/erwin/tmp/all_tmall_comments", "/users/erwin/tmp/all.freq")
-    commodity_freq, commodity_total, commodity_line = gen_freq_dict("/users/erwin/tmp/make-up", "/users/erwin/tmp/makeup.freq")
-    #all_freq, all_total, all_line = gen_freq_dict("/users/erwin/tmp/all_tmall_comments")
-    #commodity_freq, commodity_total, commodity_line = gen_freq_dict("/users/erwin/tmp/make-up")
+    commodity_freq, commodity_total, commodity_line = gen_freq_dict("/users/erwin/tmp/make-up",
+                                                                    "/users/erwin/tmp/makeup.freq")
     while True:
         word = sys.stdin.readline()
         word = word.strip()
