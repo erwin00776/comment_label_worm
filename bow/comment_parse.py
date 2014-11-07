@@ -39,12 +39,13 @@ def parse(file_name, fout=None, auto_line=False, short_sentences=False, auto_cut
     if fout is None:
         fout = codecs.open(file_name+".parsed", 'w', encoding='utf-8')
         fout_auto_close = False
+
     fin = open(file_name, 'r')
     for line in fin.readlines():
         line = line.strip()
         if len(line) <= 0:
             continue
-        line = line[10:len(line)-1]
+        line = line[13:]
         try:
             try:
                 line = line.decode("GB18030")
@@ -53,9 +54,9 @@ def parse(file_name, fout=None, auto_line=False, short_sentences=False, auto_cut
                 print(e)
 
             rate_list = json.loads(line, encoding='utf-8')
-            if not 'rateDetail' in rate_list or not 'rateList' in rate_list['rateDetail']:
+            if rate_list is None or not 'rateList' in rate_list:
                 continue
-            for rate in rate_list['rateDetail']['rateList']:
+            for rate in rate_list['rateList']:
                 comment = rate['rateContent']
                 if short_sentences:
                     comments = get_short_sentences(comment)
@@ -73,7 +74,7 @@ def parse(file_name, fout=None, auto_line=False, short_sentences=False, auto_cut
             print("parse line %s failed at %s" % (line, file_name))
             continue
         except:
-            #print("ERROR " + line)
+            print("error failed at %s" % file_name)
             pass
 
     fin.close()
@@ -81,14 +82,15 @@ def parse(file_name, fout=None, auto_line=False, short_sentences=False, auto_cut
         fout.close()
 
 
-def scan_tmp_dir(dir_name, auto_line=True, short_sentences=False, auto_cut=True):
-    fout = codecs.open(os.path.join(dir_name, "../all_tmall_comments"), 'w', encoding='utf-8')
-    if auto_line:
+def scan_tmp_dir(dir_name, class_name, auto_line=True, short_sentences=False, auto_cut=True):
+    fout = codecs.open(os.path.join(dir_name, "../all_tmall_comments" + "_" + class_name), 'w', encoding='utf-8')
+    if auto_line and auto_cut:
+        # prepare for word2vec: multiline and cutted words
         fout.write("</b>\n")
-    item_list = os.listdir(dir_name)
+    item_list = os.listdir(os.path.join(dir_name, class_name))
     for item in item_list:
         if item.find('tmall_comments') == 0:
-            parse(os.path.join(dir_name, item), fout, auto_line=auto_line, short_sentences=short_sentences, auto_cut=auto_cut)
+            parse(os.path.join(dir_name, class_name, item), fout, auto_line=auto_line, short_sentences=short_sentences, auto_cut=auto_cut)
             print("parse file %s done" % item)
     fout.close()
 
@@ -195,15 +197,16 @@ def word_relation():
 
 
 if __name__ == '__main__':
-    '''
-    scan_tmp_dir('/users/erwin/work/comment_labeled/raw_comments',
+    scan_tmp_dir('/users/erwin/work/comment_labeled/raw_comments/',
+                 'cosmetic',
                  auto_line=True,
                  short_sentences=True,
                  auto_cut=False)
-    '''
     #word_relation()
 
     #test_freq()
+    '''
     fout = codecs.open(os.path.join("/users/erwin/tmp", "tmall_comments_clothes_sentences"), 'w', encoding='utf-8')
     parse("/users/erwin/tmp/tmall_comments_clothes_40887946035_1579139371",
           fout=fout, auto_line=True, short_sentences=True, auto_cut=False)
+    '''

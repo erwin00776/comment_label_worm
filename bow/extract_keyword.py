@@ -179,7 +179,8 @@ for tag in tags:
 def extract_words():
     keywords_flags = set(['n', 'v', 'a', 'l', 'ng', 'nz', 'd', 'p', 'u' 'k'])
     jieba.load_userdict(mass_dict.user_dict_path)
-    fin = codecs.open('/Users/erwin/work/comment_labeled/part_of_comments2', 'r', encoding='utf-8')
+    #fin = codecs.open('/Users/erwin/work/comment_labeled/part_of_comments2', 'r', encoding='utf-8')
+    fin = codecs.open('/Users/erwin/work/comment_labeled/all_tmall_comments_cosmetic', 'r', encoding='utf-8')
     fout = codecs.open('/Users/erwin/work/comment_labeled/part_of_comments_tokens', 'w', encoding='utf-8')
     label_clusters = LabelClusters()
     word_freqs = {}
