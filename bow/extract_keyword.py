@@ -41,7 +41,131 @@ class LabelClusters:
         label_obj.put(line)
 
 
-high_flag_vec = [
+class ExtractKeyword:
+    def __init__(self):
+        pass
+
+    def get_keyword(self, sentence):
+        pass
+
+    @staticmethod
+    def trashy_comment(patterns, words):
+        # filter by keyword? or by syntax rules?
+        for pattern in patterns:
+            if pattern == '*discard*':
+                return True
+        return False
+
+    def try_match_patterns(self, patterns, words, short_circut=False):
+        # short circut: for low frequency syntax rules.
+        chooses = []
+        if self.trashy_comment(words, patterns):
+            return chooses
+
+        for pattern in patterns:
+            index = 1
+            if pattern[-1].isdigit():
+                index = int(pattern[-1])
+                pattern = pattern[0:-1]
+            flag_cur_count = {}
+            for word in words:
+                count = flag_cur_count.get(word.flag, 0)
+                flag_cur_count[word.flag] = count + 1
+                if word.flag == pattern and flag_cur_count[word.flag] == index:
+                    chooses.append(word.word)
+                    if short_circut:
+                        return chooses
+                    break
+        return chooses
+
+    def choose_keyword(self, flag_str, words):
+        pattern = high_freq_patterns.get(flag_str, None)
+        if pattern is None:
+            # try low freq flags
+            chooses = self.try_match_patterns(low_freq_patterns, words, short_circut=True)
+            return chooses
+        chooses = self.try_match_patterns(pattern, words)
+
+        return chooses
+
+    def train(self, in_fname='', out_fname=''):
+        keywords_flags = set(['n', 'v', 'a', 'l', 'ng', 'nz', 'd', 'p', 'u' 'k'])
+        jieba.load_userdict(mass_dict.user_dict_path)
+
+        fin = codecs.open('/Users/erwin/work/comment_labeled/all_tmall_comments_clothes2', 'r', encoding='utf-8')
+        fout = codecs.open('/Users/erwin/work/comment_labeled/part_of_comments_tokens', 'w', encoding='utf-8')
+
+        label_clusters = LabelClusters()
+        word_freqs = {}
+        lineno = 0
+        word_count = 0
+        flag_objs = {}
+        for line in fin.readlines():
+            lineno += 1
+            line = line.rstrip()
+            tokens = pseg.cut(line)
+            words1 = []  # attr from dict
+            words2 = []  # attr from word_seg
+
+            words3 = []  # attr from selected word_seg
+            words4 = []  # word&attr from select word_seg
+            marks = []
+            for t in tokens:
+                if t.word in mass_dict.stop_words:
+                    continue
+                attr = mass_dict.word_attrs.get(t.word)
+                if attr is None:
+                    words1.append(t.word)
+                else:
+                    words1.append(t.word + '_' + ''.join(attr))
+                words2.append(t.word + '_' + t.flag)
+                if t.flag in keywords_flags:
+                    words3.append(t.word + '_' + t.flag)
+                    count = word_freqs.get(t.word, 0)
+                    word_freqs[t.word] = count + 1
+                    word_count += 1
+                    marks.append(t.flag)
+                    words4.append(t)
+            mark_str = '_'.join(marks)
+            chooses = self.choose_keyword(mark_str, words4)
+            label = '/'.join(chooses)
+            label_clusters.put(label, line)
+            flag_obj = flag_objs.get(mark_str, None)
+            if flag_obj is None:
+                flag_obj = FlagObj(mark_str)
+                flag_objs[mark_str] = flag_obj
+            flag_obj.put("\t" + line + "\t\t\t\t" + label + "\n\t\t" + '/'.join(words3) + "\n")
+        fin.close()
+
+        tmp_flags = sorted(flag_objs.items(), key=lambda (f, o): len(o.lines), reverse=True)
+        for (f, o) in tmp_flags:
+            fout.write("%s\t%d\n" % (f, len(o.lines)))
+            for l in o.lines:
+                fout.write(l)
+
+        # output labels
+        fout_labels = codecs.open('/Users/erwin/work/comment_labeled/labels', 'w', encoding='utf-8')
+        labels = []
+        for (label, label_obj) in label_clusters.clusters.items():
+            label = label.strip()
+            if len(label) < 2:
+                continue
+            if len(label_obj.lines) > 2:
+                # fout_labels.write(label + "\n")
+                labels.append([label.strip(), len(label_obj.lines)])
+            fout.write(label + "\n")
+            for line in label_obj.lines:
+                fout.write("\t\t" + line + "\n")
+
+        labels = sorted(labels, key=lambda item: item[1], reverse=True)
+        for (label, label_count) in labels:
+            fout_labels.write(label + "\t" + str(label_count) + "\n")
+
+        fout.close()
+        fout_labels.close()
+
+
+high_freq_patterns_vec = [
     "a          a",
     "v",
     "n_a		n",
@@ -77,12 +201,13 @@ high_flag_vec = [
     "v_v_n	n",
     "n_v_v_n	n2",
     "a_v		???",
-    "p_n		???discard",
     "n_v_v	???",
     "n_n_d	n2",
     "n_n_n	n1 n2",
     "d_n		n",
     "d_n_a	a",
+    "d_n_a_a a",
+    "n_v_d_v v",
     "d_d_a	a",
     "v_n_d_a	???",
     "n_v_n	n2",
@@ -93,167 +218,24 @@ high_flag_vec = [
     "n_a_a	n",
     "n_n_d_v    n2",
     "n_d_d_v    n",
-    "n_n_d_d_a  n2"
+    "n_n_d_d_a  n2",
+
+    "p_v    *discard*",
+    "p_n    *discard*",
     ]
 
 
 # high frequency syntax rules
-high_flag_map = {}
+high_freq_patterns = {}
 # low frequency syntax rules (basic)
-low_flag_cmds = ['n2', 'n', 'a2', 'a', 'v2', 'v']
-for i in high_flag_vec:
+low_freq_patterns = ['nz', 'n2', 'n', 'a2', 'a', 'v2', 'v']
+for i in high_freq_patterns_vec:
     cmds = i.split()
     if len(cmds) < 2 or cmds[1][0] == '?':
         continue
-    high_flag_map[cmds[0]] = cmds[1:]
-
-
-def try_cmds(cmds, words, short_circut=False):
-    '''
-    short circut: for low frequency syntax rules.
-    '''
-    chooses = []
-    for cmd in cmds:
-        index = 1
-        if cmd[-1].isdigit():
-            index = int(cmd[-1])
-            cmd = cmd[0:-1]
-        flag_cur_count = {}
-        for word in words:
-            count = flag_cur_count.get(word.flag, 0)
-            flag_cur_count[word.flag] = count + 1
-            if word.flag == cmd and flag_cur_count[word.flag] == index:
-                chooses.append(word.word)
-                if short_circut:
-                    return chooses
-                break
-    return chooses
-
-
-def choose_keyword(flag_str, words):
-    cmds = high_flag_map.get(flag_str, None)
-    if cmds is None:
-        '''
-        try low freq flags
-        '''
-        chooses = try_cmds(low_flag_cmds, words, short_circut=True)
-        return chooses
-    chooses = try_cmds(cmds, words)
-
-    return chooses
-
-
-def trashy_comment(words):
-    '''
-    filter by keyword?
-    or by syntax rules?
-    '''
-    filter = False
-
-    return filter
-
-
-tags = [
-    u"身材#上身#合身#修身#衣服#版型",
-    u"太胖#胖#腰身#瘦",
-    u"弹力#贴身#弹性#合身#修身#衣服#版型",
-    u"图#描述#想象#图片",
-    u"手感#面料#料子#布料#纯棉",
-    u"试穿#穿着#漂亮#很漂亮#质量",
-    u"很棒#起来#喜欢#赞#不错#好#满意",
-    u"大小#尺码#码#码数",
-    u"舒服#好看#漂亮#很漂亮#质量",
-    u"做工#质感#柔软#舒适",
-    u"合身#修身#衣服#版型#料子#布料#纯棉",
-    u"速度#态度#物流#发货",
-    u"柔软#舒适#样式#款式#色差#款型#样子",
-    u"妹妹#姐姐#妈妈#女朋友#老婆#朋友#同学#同事",
-    u"漂亮#很漂亮#质量#样式#款式#色差#款型#样子",
-]
-
-tag_vector = []
-for tag in tags:
-    t = set(tag.split('#'))
-    tag_vector.append([tag, t, []])
-
-def extract_words():
-    keywords_flags = set(['n', 'v', 'a', 'l', 'ng', 'nz', 'd', 'p', 'u' 'k'])
-    jieba.load_userdict(mass_dict.user_dict_path)
-    #fin = codecs.open('/Users/erwin/work/comment_labeled/part_of_comments2', 'r', encoding='utf-8')
-    fin = codecs.open('/Users/erwin/work/comment_labeled/all_tmall_comments_cosmetic', 'r', encoding='utf-8')
-    fout = codecs.open('/Users/erwin/work/comment_labeled/part_of_comments_tokens', 'w', encoding='utf-8')
-    label_clusters = LabelClusters()
-    word_freqs = {}
-    lineno = 0
-    word_count = 0
-    flag_objs = {}
-    for line in fin.readlines():
-        lineno += 1
-        line = line.rstrip()
-        tokens = pseg.cut(line)
-        words1 = []  # attr from dict
-        words2 = []  # attr from word_seg
-
-        words3 = []  # attr from selected word_seg
-        words4 = []  # word&attr from select word_seg
-        marks = []
-        for t in tokens:
-            if t.word in mass_dict.stop_words:
-                continue
-            attr = mass_dict.word_attrs.get(t.word)
-            if attr is None:
-                words1.append(t.word)
-            else:
-                words1.append(t.word + '_' + ''.join(attr))
-            words2.append(t.word + '_' + t.flag)
-            if t.flag in keywords_flags:
-                words3.append(t.word + '_' + t.flag)
-                count = word_freqs.get(t.word, 0)
-                word_freqs[t.word] = count + 1
-                word_count += 1
-                marks.append(t.flag)
-                words4.append(t)
-        mark_str = '_'.join(marks)
-        chooses = choose_keyword(mark_str, words4)
-        label = '/'.join(chooses)
-        label_clusters.put(label, line)
-        flag_obj = flag_objs.get(mark_str, None)
-        if flag_obj is None:
-            flag_obj = FlagObj(mark_str)
-            flag_objs[mark_str] = flag_obj
-        flag_obj.put("\t" + line + "\t\t\t\t" + label + "\n\t\t" + '/'.join(words3) + "\n")
-    fin.close()
-
-    tmp_flags = sorted(flag_objs.items(), key=lambda (f, o): len(o.lines), reverse=True)
-    for (f, o) in tmp_flags:
-        fout.write("%s\t%d\n" % (f, len(o.lines)))
-        for l in o.lines:
-            fout.write(l)
-
-    # output labels
-    fout_labels = codecs.open('/Users/erwin/work/comment_labeled/labels', 'w', encoding='utf-8')
-    for (label, label_obj) in label_clusters.clusters.items():
-        if len(label.strip()) < 1:
-            continue
-        if len(label_obj.lines) > 2:
-            fout_labels.write(label + "\n")
-        fout.write(label + "\n")
-        for line in label_obj.lines:
-            fout.write("\t\t" + line + "\n")
-
-        for tag_indicate in tag_vector:
-            if label in tag_indicate[1]:
-                tag_indicate[2] += label_obj.lines
-
-    # output comment group by labels
-    fout_labels.write("\n\n")
-    for tag_indicate in tag_vector:
-        fout_labels.write(tag_indicate[0] + "\n")
-        for line in tag_indicate[2]:
-            fout_labels.write("\t\t" + line + "\n")
-    fout.close()
-    fout_labels.close()
+    high_freq_patterns[cmds[0]] = cmds[1:]
 
 
 if __name__ == '__main__':
-    extract_words()
+    extractor = ExtractKeyword()
+    extractor.train()

@@ -16,6 +16,7 @@ def cut_line(line):
     seg_list = jieba.cut(line, cut_all=True)
     return " ".join(seg_list)
 
+
 def get_short_sentences(sentence,
                         splitters=[
                             u' ', u'，', u'。', u'；', u'！', u'、', u'：', u'　', u'～',
@@ -43,9 +44,9 @@ def parse(file_name, fout=None, auto_line=False, short_sentences=False, auto_cut
     fin = open(file_name, 'r')
     for line in fin.readlines():
         line = line.strip()
-        if len(line) <= 0:
+        if len(line) <= 13:
             continue
-        line = line[13:]
+        line = line[10:len(line)-1]
         try:
             try:
                 line = line.decode("GB18030")
@@ -54,9 +55,10 @@ def parse(file_name, fout=None, auto_line=False, short_sentences=False, auto_cut
                 print(e)
 
             rate_list = json.loads(line, encoding='utf-8')
-            if rate_list is None or not 'rateList' in rate_list:
+            if rate_list is None or 'rateDetail' not in rate_list:
+                print("none")
                 continue
-            for rate in rate_list['rateList']:
+            for rate in rate_list['rateDetail']['rateList']:
                 comment = rate['rateContent']
                 if short_sentences:
                     comments = get_short_sentences(comment)
@@ -83,14 +85,21 @@ def parse(file_name, fout=None, auto_line=False, short_sentences=False, auto_cut
 
 
 def scan_tmp_dir(dir_name, class_name, auto_line=True, short_sentences=False, auto_cut=True):
-    fout = codecs.open(os.path.join(dir_name, "../all_tmall_comments" + "_" + class_name), 'w', encoding='utf-8')
+    fout = codecs.open(os.path.join(dir_name, "../all_tmall_comments" + "." + class_name +
+                                    ".token" if auto_cut else "" +
+                                    ".lined" if auto_line else ""
+                                    ), 'w', encoding='utf-8')
     if auto_line and auto_cut:
         # prepare for word2vec: multiline and cutted words
         fout.write("</b>\n")
     item_list = os.listdir(os.path.join(dir_name, class_name))
     for item in item_list:
         if item.find('tmall_comments') == 0:
-            parse(os.path.join(dir_name, class_name, item), fout, auto_line=auto_line, short_sentences=short_sentences, auto_cut=auto_cut)
+            parse(os.path.join(dir_name, class_name, item),
+                  fout,
+                  auto_line=auto_line,
+                  short_sentences=short_sentences,
+                  auto_cut=auto_cut)
             print("parse file %s done" % item)
     fout.close()
 
@@ -99,7 +108,7 @@ def gen_freq_dict(file_name, freq_name=None):
     word2freq = {}
     fin = codecs.open(file_name, 'r', encoding='utf-8')
     fout = None
-    if not freq_name is None:
+    if freq_name is not None:
         fout = codecs.open(freq_name, 'w', encoding='utf-8')
 
     line_count = 0
@@ -113,11 +122,11 @@ def gen_freq_dict(file_name, freq_name=None):
             word2freq[w] = freq
     total = 0
     for (word, word_freq) in word2freq.items():
-        if not fout is None:
+        if fout is not None:
             freq = word_freq * 1.0 / total
             fout.write(word + ' ' + str(word_freq) + ' ' + str(freq) + '\n')
         total += word_freq
-    if not fout is None:
+    if fout is not None:
         fout.close()
     fin.close()
     return word2freq, total, line_count
@@ -136,6 +145,7 @@ def test_freq():
         a_ratio = af*1.0 / all_line
         c_ratio = cf*1.0 / commodity_line
         print(a_ratio, c_ratio, c_ratio/a_ratio)
+
 
 def load_word_attr(path_name):
     fin = codecs.open(path_name, 'r', encoding='utf-8')
@@ -196,16 +206,19 @@ def word_relation():
 
 
 if __name__ == '__main__':
+
     scan_tmp_dir('/users/erwin/work/comment_labeled/raw_comments/',
-                 'cosmetic',
+                 'clothes',
                  auto_line=True,
                  short_sentences=True,
-                 auto_cut=False)
+                 auto_cut=True)
     #word_relation()
 
     #test_freq()
     '''
     fout = codecs.open(os.path.join("/users/erwin/tmp", "tmall_comments_clothes_sentences"), 'w', encoding='utf-8')
-    parse("/users/erwin/tmp/tmall_comments_clothes_40887946035_1579139371",
+    fout.write("hello\n")
+    parse("/Users/erwin/work/comment_labeled/raw_comments/clothes/tmall_comments_大码女装_21127639356_1706927445",
           fout=fout, auto_line=True, short_sentences=True, auto_cut=False)
+    fout.close()
     '''
